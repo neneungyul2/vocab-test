@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>퀴즈 관리자</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;background:#f1f5f9;color:#1e293b;min-height:100vh}
+
+/* ── 헤더 ── */
+header{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:20px 24px;
+       display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 20px rgba(79,70,229,.3)}
+header h1{font-size:20px;font-weight:800;display:flex;align-items:center;gap:10px}
+.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot-active{background:#4ade80;box-shadow:0 0 6px #4ade80}
+.dot-inactive{background:#94a3b8}
+.dot-ended{background:#f87171}
+#header-status{font-size:12px;opacity:.85;display:flex;align-items:center;gap:6px}
+
+/* ── 레이아웃 ── */
+.container{max-width:960px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:700px){.container{grid-template-columns:1fr}}
+.col-full{grid-column:1/-1}
+
+/* ── 카드 ── */
+.card{background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.card-title{font-size:15px;font-weight:800;color:#1e293b;margin-bottom:16px;
+            display:flex;align-items:center;gap:8px;border-bottom:2px solid #f1f5f9;padding-bottom:12px}
+.card-title span{font-size:18px}
+
+/* ── 폼 요소 ── */
+label{display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:5px;margin-top:14px;text-transform:uppercase;letter-spacing:.05em}
+label:first-child{margin-top:0}
+input[type=text],input[type=password],textarea{
+  width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:10px;
+  font-size:14px;font-family:inherit;outline:none;transition:border-color .2s;
+  color:#1e293b;background:#fff
+}
+input:focus,textarea:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+textarea{resize:vertical;min-height:200px;line-height:1.6;font-size:13px}
+
+/* ── 버튼 ── */
+.btn{padding:10px 18px;border:none;border-radius:10px;font-size:14px;font-weight:700;
+     cursor:pointer;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:#4f46e5;color:#fff}
+.btn-primary:hover{background:#4338ca}
+.btn-danger{background:#ef4444;color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-secondary{background:#f1f5f9;color:#475569}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-success{background:#22c55e;color:#fff}
+.btn-success:hover{background:#16a34a}
+.btn-block{width:100%;justify-content:center;padding:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+
+/* ── 단어 미리보기 ── */
+#word-preview{display:none;margin-top:14px}
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-top:8px}
+.preview-chip{background:#eef2ff;color:#3730a3;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;
+              display:flex;justify-content:space-between;gap:8px}
+.preview-chip .en{font-weight:800}.preview-chip .ko{color:#6366f1;font-size:11px}
+.preview-count{font-size:12px;color:#64748b;margin-bottom:4px}
+
+/* ── 공유 URL ── */
+.url-box{background:#f8fafc;border:2px dashed #c7d2fe;border-radius:10px;padding:12px 14px;
+         font-size:12px;color:#4f46e5;word-break:break-all;margin-top:12px;display:none;
+         font-family:monospace;line-height:1.5}
+.copy-row{display:flex;gap:8px;margin-top:8px}
+
+/* ── 결과 테이블 ── */
+.result-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.result-count{font-size:13px;color:#64748b;font-weight:600}
+.refresh-info{font-size:11px;color:#94a3b8}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid #e2e8f0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f8fafc;padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:#64748b;
+   text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e2e8f0;white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#1e293b}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fafc}
+.pct-bar-wrap{display:flex;align-items:center;gap:6px}
+.pct-bar{height:6px;background:#e2e8f0;border-radius:99px;flex:1;overflow:hidden}
+.pct-fill{height:100%;border-radius:99px}
+.pct-label{font-size:12px;font-weight:700;min-width:36px;text-align:right}
+.badge{padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.badge-A{background:#dcfce7;color:#15803d}
+.badge-B{background:#dbeafe;color:#1d4ed8}
+.badge-C{background:#fef9c3;color:#a16207}
+.badge-D{background:#fee2e2;color:#b91c1c}
+.empty-row td{text-align:center;color:#94a3b8;padding:32px}
+
+/* ── 알림 토스트 ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+       background:#1e293b;color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;
+       box-shadow:0 8px 24px rgba(0,0,0,.2);transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── 수업 종료 구역 ── */
+.danger-zone{border:2px solid #fecaca;border-radius:12px;padding:16px;background:#fff5f5}
+.danger-title{font-size:13px;font-weight:700;color:#dc2626;margin-bottom:8px}
+.danger-desc{font-size:12px;color:#6b7280;margin-bottom:12px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 퀴즈 관리자</h1>
+  <div id="header-status"><span class="status-dot dot-inactive" id="status-dot"></span><span id="status-text">비활성</span></div>
+</header>
+
+<div class="container">
+
+  <!-- ① 설정 카드 -->
+  <div class="card">
+    <div class="card-title"><span>⚙️</span> Apps Script 설정</div>
+    <label>Apps Script URL</label>
+    <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/…/exec">
+    <label>관리자 키</label>
+    <input type="password" id="admin-key" placeholder="기본값: admin1234" value="admin1234">
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="saveConfig()">💾 저장</button>
+      <button class="btn btn-secondary" onclick="testConnection()">🔗 연결 테스트</button>
+    </div>
+  </div>
+
+  <!-- ② 단어 등록 카드 -->
+  <div class="card">
+    <div class="card-title"><span>📝</span> 단어 등록</div>
+    <label>퀴즈 제목</label>
+    <input type="text" id="quiz-title" placeholder="예: 3월 1주차 어휘 테스트">
+    <label>단어 목록 (한 줄에 하나씩: 영단어:한국어뜻)</label>
+    <textarea id="word-input" placeholder="apple:사과&#10;banana:바나나&#10;love:사랑&#10;beautiful:아름다운&#10;…"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="parseWords()">👁 미리보기</button>
+      <button class="btn btn-primary"   onclick="setQuiz()">🚀 퀴즈 등록하기</button>
+    </div>
+
+    <div id="word-preview">
+      <p class="preview-count" id="preview-count"></p>
+      <div class="preview-grid" id="preview-grid"></div>
+    </div>
+
+    <div id="url-section" style="display:none">
+      <label style="margin-top:16px">학생 접속 URL</label>
+      <div class="url-box" id="student-url"></div>
+      <div class="copy-row">
+        <button class="btn btn-success" onclick="copyUrl()">📋 URL 복사</button>
+        <button class="btn btn-secondary" onclick="openUrl()">🔗 새 탭으로 열기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 실시간 결과 -->
+  <div class="card col-full">
+    <div class="card-title"><span>📊</span> 실시간 결과</div>
+    <div class="result-meta">
+      <span class="result-count" id="result-count">결과 없음</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="refresh-info" id="refresh-info">자동 새로고침: 10초</span>
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="loadResults()">🔄 지금 새로고침</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="result-table">
+        <thead>
+          <tr>
+            <th>시간</th><th>이름</th><th>반</th><th>번호</th>
+            <th>점수</th><th>정답률</th><th>등급</th><th>틀린단어</th>
+          </tr>
+        </thead>
+        <tbody id="result-tbody">
+          <tr class="empty-row"><td colspan="8">아직 제출된 결과가 없습니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ④ 수업 종료 -->
+  <div class="card col-full">
+    <div class="card-title"><span>🏁</span> 수업 종료</div>
+    <div class="danger-zone">
+      <div class="danger-title">⚠️ 수업 종료 및 반별 요약 생성</div>
+      <div class="danger-desc">
+        수업 종료 버튼을 누르면 현재까지의 결과를 바탕으로<br>
+        구글 시트에 <strong>각 반별 요약 시트</strong>가 자동으로 생성됩니다.<br>
+        종료 후에는 학생들이 더 이상 퀴즈에 접속할 수 없습니다.
+      </div>
+      <button class="btn btn-danger" onclick="confirmEndClass()">🔚 수업 종료 &amp; 요약 생성</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── 상태 ──────────────────────────────────────────────────────
+let SCRIPT_URL = '';
+let ADMIN_KEY  = 'admin1234';
+let refreshTimer = null;
+let generatedStudentUrl = '';
+
+// ── 설정 불러오기/저장 ────────────────────────────────────────
+function loadConfig() {
+  SCRIPT_URL = localStorage.getItem('quiz_script_url') || '';
+  ADMIN_KEY  = localStorage.getItem('quiz_admin_key')  || 'admin1234';
+  if (SCRIPT_URL) document.getElementById('script-url').value = SCRIPT_URL;
+  document.getElementById('admin-key').value = ADMIN_KEY;
+}
+
+function saveConfig() {
+  SCRIPT_URL = document.getElementById('script-url').value.trim();
+  ADMIN_KEY  = document.getElementById('admin-key').value.trim() || 'admin1234';
+  localStorage.setItem('quiz_script_url', SCRIPT_URL);
+  localStorage.setItem('quiz_admin_key',  ADMIN_KEY);
+  toast('✅ 설정이 저장되었습니다.');
+}
+
+// ── JSONP ─────────────────────────────────────────────────────
+function callAPI(params) {
+  return new Promise((resolve, reject) => {
+    if (!SCRIPT_URL) { reject(new Error('Apps Script URL을 먼저 입력하세요.')); return; }
+    const cb   = '_cb' + Date.now() + '_' + Math.floor(Math.random()*9999);
+    let   done = false;
+
+    window[cb] = data => {
+      if(done) return; done = true;
+      delete window[cb];
+      try { document.head.removeChild(script); } catch(_){}
+      resolve(data);
+    };
+
+    const url = new URL(SCRIPT_URL);
+    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+    url.searchParams.set('callback', cb);
+
+    const script = document.createElement('script');
+    script.src    = url.toString();
+    script.onerror = () => {
+      if(done) return; done = true;
+      delete window[cb];
+      reject(new Error('네트워크 오류'));
+    };
+    document.head.appendChild(script);
+
+    setTimeout(() => {
+      if(done) return; done = true;
+      delete window[cb];
+      try { document.head.removeChild(script); } catch(_){}
+      reject(new Error('응답 시간 초과'));
+    }, 15000);
+  });
+}
+
+// ── 연결 테스트 ───────────────────────────────────────────────
+async function testConnection() {
+  saveConfig();
+  try {
+    toast('⏳ 연결 테스트 중…');
+    const res = await callAPI({ action: 'getQuiz' });
+    if (res.success) {
+      toast('✅ 연결 성공! 상태: ' + (res.status || 'OK'));
+      updateStatusUI(res.status);
+    } else {
+      toast('❌ 오류: ' + (res.error || '알 수 없는 오류'));
+    }
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+// ── 단어 파싱 및 미리보기 ─────────────────────────────────────
+function parseWords(silent) {
+  const lines = document.getElementById('word-input').value
+    .split('\n').map(l => l.trim()).filter(l => l);
+
+  const words = [];
+  const errors = [];
+  lines.forEach((line, i) => {
+    const sep = line.includes(':') ? ':' : line.includes('=') ? '=' : null;
+    if (!sep) { errors.push(i+1); return; }
+    const [en, ...rest] = line.split(sep);
+    const ko = rest.join(sep).trim();
+    if (en.trim() && ko) words.push({ en: en.trim(), ko });
+  });
+
+  if (!silent) {
+    const preview = document.getElementById('word-preview');
+    const grid    = document.getElementById('preview-grid');
+    const count   = document.getElementById('preview-count');
+    preview.style.display = 'block';
+    count.textContent = `총 ${words.length}개 단어${errors.length ? ' (오류 행: ' + errors.join(', ') + ')' : ''}`;
+    grid.innerHTML = words.map(w =>
+      `<div class="preview-chip"><span class="en">${w.en}</span><span class="ko">${w.ko}</span></div>`
+    ).join('');
+  }
+  return words;
+}
+
+// ── 퀴즈 등록 ────────────────────────────────────────────────
+async function setQuiz() {
+  saveConfig();
+  const words = parseWords(true);
+  const title = document.getElementById('quiz-title').value.trim() || '영어 단어 퀴즈';
+
+  if (words.length === 0) { toast('❌ 올바른 단어가 없습니다. (형식: apple:사과)'); return; }
+  if (words.length > 50)  { toast('❌ 단어는 최대 50개까지 입력 가능합니다.'); return; }
+
+  try {
+    toast('⏳ 퀴즈를 등록하는 중…');
+    const res = await callAPI({
+      action : 'setQuiz',
+      key    : ADMIN_KEY,
+      title  : encodeURIComponent(title),
+      words  : encodeURIComponent(JSON.stringify(words))
+    });
+
+    if (!res.success) throw new Error(res.error || '등록 실패');
+
+    toast('✅ ' + words.length + '개 단어 등록 완료!');
+    updateStatusUI('active');
+    generateStudentUrl();
+    parseWords(); // 미리보기 업데이트
+    startAutoRefresh();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+// ── 학생 URL 생성 ─────────────────────────────────────────────
+function generateStudentUrl() {
+  if (!SCRIPT_URL) return;
+  const base = window.location.href.replace('admin.html', 'student.html');
+  generatedStudentUrl = base + '?script=' + encodeURIComponent(SCRIPT_URL);
+
+  const urlBox = document.getElementById('student-url');
+  urlBox.textContent = generatedStudentUrl;
+  document.getElementById('url-section').style.display = 'block';
+}
+
+function copyUrl() {
+  navigator.clipboard.writeText(generatedStudentUrl).then(() => toast('📋 URL이 복사되었습니다!'));
+}
+function openUrl() {
+  if (generatedStudentUrl) window.open(generatedStudentUrl, '_blank');
+}
+
+// ── 실시간 결과 ───────────────────────────────────────────────
+async function loadResults() {
+  if (!SCRIPT_URL) return;
+  try {
+    const res = await callAPI({ action: 'getResults' });
+    if (!res.success) return;
+    renderResults(res.results || []);
+  } catch(_) {}
+}
+
+function renderResults(results) {
+  const tbody = document.getElementById('result-tbody');
+  const count = document.getElementById('result-count');
+  count.textContent = '총 ' + results.length + '명 제출';
+
+  if (results.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">아직 제출된 결과가 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = results.map(r => {
+    const pct  = parseInt(r.percent) || 0;
+    const grade= pct>=90?'A':pct>=80?'B':pct>=60?'C':'D';
+    const color= pct>=80?'#22c55e':pct>=60?'#f59e0b':'#ef4444';
+    return `<tr>
+      <td>${r.time}</td>
+      <td><strong>${r.name}</strong></td>
+      <td>${r.class}</td>
+      <td style="text-align:center">${r.number}</td>
+      <td style="text-align:center;font-weight:700">${r.score}/${r.total}</td>
+      <td style="min-width:100px">
+        <div class="pct-bar-wrap">
+          <div class="pct-bar"><div class="pct-fill" style="width:${pct}%;background:${color}"></div></div>
+          <span class="pct-label" style="color:${color}">${r.percent}</span>
+        </div>
+      </td>
+      <td><span class="badge badge-${grade}">${grade}</span></td>
+      <td style="font-size:11px;color:#94a3b8;max-width:150px;white-space:normal">${r.wrong || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  let sec = 10;
+  const info = document.getElementById('refresh-info');
+  loadResults();
+  refreshTimer = setInterval(() => {
+    sec--;
+    info.textContent = '자동 새로고침: ' + sec + '초';
+    if (sec <= 0) { sec = 10; loadResults(); }
+  }, 1000);
+}
+
+// ── 상태 UI ──────────────────────────────────────────────────
+function updateStatusUI(status) {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  dot.className = 'status-dot ' + (status==='active'?'dot-active':status==='ended'?'dot-ended':'dot-inactive');
+  text.textContent = status==='active'?'퀴즈 진행중':status==='ended'?'종료됨':'비활성';
+}
+
+// ── 수업 종료 ─────────────────────────────────────────────────
+async function confirmEndClass() {
+  const confirmed = confirm('수업을 종료하고 반별 요약 시트를 생성할까요?\n\n이 작업 후 학생들은 더 이상 퀴즈를 풀 수 없습니다.');
+  if (!confirmed) return;
+  saveConfig();
+  try {
+    toast('⏳ 요약 시트 생성 중…');
+    const res = await callAPI({ action: 'endClass', key: ADMIN_KEY });
+    if (!res.success) throw new Error(res.error);
+    toast('✅ 수업 종료 완료! 구글 시트에서 반별 탭을 확인하세요.');
+    updateStatusUI('ended');
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    document.getElementById('refresh-info').textContent = '종료됨';
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+// ── 토스트 알림 ───────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── 초기화 ───────────────────────────────────────────────────
+loadConfig();
+if (SCRIPT_URL) {
+  generateStudentUrl();
+  testConnection().then(() => startAutoRefresh());
+}
+</script>
+</body>
+</html>

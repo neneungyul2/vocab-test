@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>영어 단어 퀴즈</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+  background:linear-gradient(145deg,#4f46e5 0%,#7c3aed 60%,#a855f7 100%);
+  min-height:100dvh;display:flex;align-items:center;justify-content:center;
+  padding:16px;
+}
+.screen{display:none;width:100%;max-width:420px;animation:fadeUp .3s ease}
+.screen.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.card{background:#fff;border-radius:24px;padding:32px 24px;box-shadow:0 24px 64px rgba(0,0,0,.25)}
+
+/* ── 로딩 ── */
+.spinner{width:48px;height:48px;border:4px solid #e5e7eb;border-top-color:#4f46e5;
+  border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:#6b7280;font-size:15px;text-align:center}
+
+/* ── 공통 ── */
+.quiz-badge{display:inline-block;background:#eef2ff;color:#4f46e5;
+  font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;margin-bottom:16px}
+h1.title{font-size:22px;font-weight:800;color:#111827;margin-bottom:24px;line-height:1.3}
+label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;margin-top:16px}
+input,select{
+  width:100%;padding:14px 16px;border:2px solid #e5e7eb;border-radius:12px;
+  font-size:16px;font-family:inherit;color:#111827;outline:none;
+  transition:border-color .2s;background:#fff;appearance:none;-webkit-appearance:none
+}
+input:focus,select:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.btn{
+  display:block;width:100%;padding:16px;border:none;border-radius:14px;
+  font-size:17px;font-weight:700;cursor:pointer;transition:all .15s;
+  margin-top:24px;font-family:inherit
+}
+.btn-primary{background:#4f46e5;color:#fff}
+.btn-primary:active{background:#3730a3;transform:scale(.98)}
+.btn-primary:disabled{background:#c7d2fe;cursor:not-allowed}
+.btn-secondary{background:#f3f4f6;color:#374151}
+.btn-secondary:active{background:#e5e7eb}
+
+/* ── 퀴즈 ── */
+.quiz-header{margin-bottom:20px}
+.progress-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.progress-label{font-size:13px;color:#6b7280;font-weight:600}
+.progress-num{font-size:13px;color:#4f46e5;font-weight:700}
+.progress-bar{height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#4f46e5,#a855f7);border-radius:99px;transition:width .4s ease}
+.word-card{background:linear-gradient(135deg,#eef2ff,#faf5ff);border-radius:18px;
+  padding:32px 20px;text-align:center;margin:20px 0;border:2px solid #e0e7ff}
+.word-label{font-size:12px;font-weight:700;color:#6366f1;letter-spacing:.08em;margin-bottom:12px;text-transform:uppercase}
+.word-ko{font-size:30px;font-weight:800;color:#1e1b4b;line-height:1.3;word-break:keep-all}
+.word-hint{font-size:13px;color:#9ca3af;margin-top:10px}
+.answer-input{font-size:20px!important;text-align:center;letter-spacing:.05em;font-weight:600;padding:16px!important}
+.answer-input::placeholder{font-size:15px;font-weight:400;color:#9ca3af;letter-spacing:0}
+.input-wrap{position:relative}
+.clear-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:#9ca3af;font-size:18px;padding:4px}
+
+/* ── 피드백 오버레이 ── */
+.feedback-overlay{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  z-index:100;opacity:0;pointer-events:none;transition:opacity .2s
+}
+.feedback-overlay.show{opacity:1}
+.feedback-box{
+  background:#fff;border-radius:24px;padding:28px 36px;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);transform:scale(.8);
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1)
+}
+.feedback-overlay.show .feedback-box{transform:scale(1)}
+.feedback-icon{font-size:52px;margin-bottom:12px}
+.feedback-msg{font-size:20px;font-weight:800}
+.feedback-answer{font-size:14px;color:#6b7280;margin-top:8px}
+.feedback-correct .feedback-box{border-top:5px solid #22c55e}
+.feedback-wrong   .feedback-box{border-top:5px solid #ef4444}
+
+/* ── 결과 ── */
+.score-ring-wrap{text-align:center;margin:8px 0 24px}
+.score-ring{width:140px;height:140px;margin:0 auto;position:relative}
+.score-ring svg{transform:rotate(-90deg)}
+.score-circle-bg{fill:none;stroke:#e5e7eb;stroke-width:10}
+.score-circle-fg{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .8s ease}
+.score-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.score-num{font-size:32px;font-weight:800;color:#111827}
+.score-total{font-size:13px;color:#6b7280}
+.grade-badge{display:inline-block;padding:6px 20px;border-radius:99px;font-weight:700;font-size:15px;margin-bottom:20px}
+.grade-A{background:#dcfce7;color:#15803d}
+.grade-B{background:#dbeafe;color:#1d4ed8}
+.grade-C{background:#fef9c3;color:#a16207}
+.grade-D{background:#fee2e2;color:#b91c1c}
+.wrong-section{text-align:left;margin-top:12px}
+.wrong-title{font-size:13px;font-weight:700;color:#374151;margin-bottom:10px}
+.wrong-list{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;padding-right:4px}
+.wrong-item{background:#fef2f2;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.wrong-ko{font-size:13px;color:#6b7280}
+.wrong-en{font-size:14px;font-weight:700;color:#dc2626}
+.submitted-msg{text-align:center;color:#22c55e;font-size:14px;font-weight:600;margin-top:16px;display:none}
+</style>
+</head>
+<body>
+
+<!-- ① 로딩 화면 -->
+<div id="screen-loading" class="screen active">
+  <div class="card" style="text-align:center;padding:60px 24px">
+    <div class="spinner"></div>
+    <p class="loading-text">퀴즈를 불러오는 중입니다…</p>
+  </div>
+</div>
+
+<!-- ② 정보 입력 화면 -->
+<div id="screen-info" class="screen">
+  <div class="card">
+    <span class="quiz-badge">📝 영어 단어 퀴즈</span>
+    <h1 class="title" id="quiz-title">오늘의 단어 테스트</h1>
+    <label for="inp-name">이름</label>
+    <input type="text" id="inp-name" placeholder="홍길동" autocomplete="off" inputmode="text">
+    <label for="inp-class">반</label>
+    <select id="inp-class">
+      <option value="">-- 반을 선택하세요 --</option>
+      <option value="1">1반</option><option value="2">2반</option>
+      <option value="3">3반</option><option value="4">4반</option>
+      <option value="5">5반</option><option value="6">6반</option>
+      <option value="7">7반</option><option value="8">8반</option>
+      <option value="9">9반</option>
+    </select>
+    <label for="inp-num">출석 번호</label>
+    <input type="number" id="inp-num" placeholder="1" min="1" max="60" inputmode="numeric">
+    <button class="btn btn-primary" id="btn-start">퀴즈 시작하기 →</button>
+    <p id="info-error" style="color:#ef4444;font-size:13px;text-align:center;margin-top:12px;display:none"></p>
+  </div>
+</div>
+
+<!-- ③ 퀴즈 화면 -->
+<div id="screen-quiz" class="screen">
+  <div class="card">
+    <div class="quiz-header">
+      <div class="progress-row">
+        <span class="progress-label">진행률</span>
+        <span class="progress-num" id="progress-num">1 / 20</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="word-card">
+      <div class="word-label">한국어 뜻</div>
+      <div class="word-ko" id="word-ko">—</div>
+      <div class="word-hint" id="word-hint"></div>
+    </div>
+    <label for="ans-input" style="text-align:center;display:block">영어 단어를 입력하세요</label>
+    <div class="input-wrap" style="margin-top:8px">
+      <input type="text" id="ans-input" class="answer-input"
+             placeholder="영어로 입력" autocomplete="off" autocorrect="off"
+             autocapitalize="off" spellcheck="false" inputmode="text">
+      <button class="clear-btn" id="clear-btn" onclick="document.getElementById('ans-input').value=''">✕</button>
+    </div>
+    <button class="btn btn-primary" id="btn-confirm" style="margin-top:16px">확인 →</button>
+  </div>
+</div>
+
+<!-- ④ 결과 화면 -->
+<div id="screen-results" class="screen">
+  <div class="card">
+    <span class="quiz-badge">🎉 결과 확인</span>
+    <div class="score-ring-wrap">
+      <div class="score-ring">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          <circle class="score-circle-bg" cx="70" cy="70" r="60"/>
+          <circle class="score-circle-fg" id="score-arc" cx="70" cy="70" r="60"
+                  stroke-dasharray="377" stroke-dashoffset="377" stroke="#4f46e5"/>
+        </svg>
+        <div class="score-text">
+          <span class="score-num" id="score-num">0</span>
+          <span class="score-total" id="score-total">/ 20</span>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-bottom:16px">
+      <span class="grade-badge" id="grade-badge">—</span>
+      <p id="score-msg" style="font-size:14px;color:#6b7280;margin-top:6px"></p>
+    </div>
+    <div class="wrong-section" id="wrong-section" style="display:none">
+      <div class="wrong-title">❌ 틀린 단어</div>
+      <div class="wrong-list" id="wrong-list"></div>
+    </div>
+    <button class="btn btn-primary" id="btn-submit" style="margin-top:20px">결과 제출하기</button>
+    <p class="submitted-msg" id="submitted-msg">✅ 구글 시트에 저장되었습니다!</p>
+  </div>
+</div>
+
+<!-- 피드백 오버레이 -->
+<div class="feedback-overlay" id="feedback-overlay">
+  <div class="feedback-box">
+    <div class="feedback-icon" id="fb-icon"></div>
+    <div class="feedback-msg"  id="fb-msg"></div>
+    <div class="feedback-answer" id="fb-answer"></div>
+  </div>
+</div>
+
+<script>
+// ── 상태 ──────────────────────────────────────────────────────
+let SCRIPT_URL = '';
+let words      = [];   // [{en, ko}]
+let shuffled   = [];
+let current    = 0;
+let score      = 0;
+let wrongList  = [];   // [{ko, en, user}]
+let studentInfo = {};
+let submitting  = false;
+
+// ── 유틸 ─────────────────────────────────────────────────────
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// JSONP 호출 (CORS 우회)
+function callAPI(params) {
+  return new Promise((resolve, reject) => {
+    const cb   = '_cb' + Date.now() + '_' + Math.floor(Math.random()*9999);
+    let   done = false;
+
+    window[cb] = data => {
+      if(done) return; done = true;
+      delete window[cb];
+      try { document.head.removeChild(script); } catch(_){}
+      resolve(data);
+    };
+
+    const url = new URL(SCRIPT_URL);
+    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+    url.searchParams.set('callback', cb);
+
+    const script = document.createElement('script');
+    script.src    = url.toString();
+    script.onerror = () => {
+      if(done) return; done = true;
+      delete window[cb];
+      reject(new Error('네트워크 오류가 발생했습니다.'));
+    };
+    document.head.appendChild(script);
+
+    setTimeout(() => {
+      if(done) return; done = true;
+      delete window[cb];
+      try { document.head.removeChild(script); } catch(_){}
+      reject(new Error('응답 시간이 초과되었습니다.'));
+    }, 12000);
+  });
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for(let i = a.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ── 초기화 ───────────────────────────────────────────────────
+async function init() {
+  const params = new URLSearchParams(location.search);
+  SCRIPT_URL   = params.get('script') || localStorage.getItem('quizScriptUrl') || '';
+
+  if (!SCRIPT_URL) {
+    document.querySelector('.loading-text').textContent = '❌ 주소가 올바르지 않습니다. 선생님께 URL을 다시 받으세요.';
+    return;
+  }
+  localStorage.setItem('quizScriptUrl', SCRIPT_URL);
+
+  try {
+    const res = await callAPI({ action: 'getQuiz' });
+
+    if (!res.success) throw new Error(res.error || '로드 실패');
+    if (res.status === 'inactive' || res.status === 'ended') {
+      document.querySelector('.loading-text').textContent = '🔒 현재 퀴즈가 준비되지 않았습니다. 선생님을 기다려 주세요.';
+      return;
+    }
+    if (!res.words || res.words.length === 0) {
+      document.querySelector('.loading-text').textContent = '❌ 단어가 등록되지 않았습니다.';
+      return;
+    }
+
+    words = res.words;
+    document.getElementById('quiz-title').textContent = res.title || '영어 단어 퀴즈';
+    show('screen-info');
+
+  } catch(e) {
+    document.querySelector('.loading-text').textContent = '❌ ' + e.message;
+  }
+}
+
+// ── 퀴즈 시작 ────────────────────────────────────────────────
+document.getElementById('btn-start').addEventListener('click', () => {
+  const name  = document.getElementById('inp-name').value.trim();
+  const cls   = document.getElementById('inp-class').value;
+  const num   = document.getElementById('inp-num').value.trim();
+  const errEl = document.getElementById('info-error');
+
+  if (!name) { errEl.textContent='이름을 입력해 주세요.'; errEl.style.display='block'; return; }
+  if (!cls)  { errEl.textContent='반을 선택해 주세요.';   errEl.style.display='block'; return; }
+  if (!num)  { errEl.textContent='번호를 입력해 주세요.'; errEl.style.display='block'; return; }
+  errEl.style.display = 'none';
+
+  studentInfo = { name, class: cls, number: num };
+  shuffled    = shuffle(words);
+  current     = 0;
+  score       = 0;
+  wrongList   = [];
+
+  show('screen-quiz');
+  renderQuestion();
+  document.getElementById('ans-input').focus();
+});
+
+// ── 문제 렌더링 ───────────────────────────────────────────────
+function renderQuestion() {
+  const total = shuffled.length;
+  const idx   = current + 1;
+  const word  = shuffled[current];
+
+  document.getElementById('progress-num').textContent = idx + ' / ' + total;
+  document.getElementById('progress-fill').style.width = ((current / total) * 100) + '%';
+  document.getElementById('word-ko').textContent  = word.ko;
+  document.getElementById('word-hint').textContent = '글자 수: ' + word.en.length + '자';
+  document.getElementById('ans-input').value = '';
+  document.getElementById('ans-input').focus();
+}
+
+// ── 답 확인 ──────────────────────────────────────────────────
+function confirmAnswer() {
+  const input   = document.getElementById('ans-input');
+  const userAns = input.value.trim().toLowerCase();
+  const word    = shuffled[current];
+  const correct = word.en.trim().toLowerCase();
+
+  if (!userAns) { input.focus(); return; }
+
+  const isOk = userAns === correct;
+  if (isOk) { score++; }
+  else       { wrongList.push({ ko: word.ko, en: word.en, user: userAns }); }
+
+  showFeedback(isOk, word.en);
+
+  setTimeout(() => {
+    hideFeedback();
+    current++;
+    if (current >= shuffled.length) { showResults(); }
+    else { renderQuestion(); }
+  }, 1400);
+}
+
+document.getElementById('btn-confirm').addEventListener('click', confirmAnswer);
+document.getElementById('ans-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmAnswer();
+});
+
+// ── 피드백 ───────────────────────────────────────────────────
+function showFeedback(ok, correctWord) {
+  const overlay = document.getElementById('feedback-overlay');
+  const icon    = document.getElementById('fb-icon');
+  const msg     = document.getElementById('fb-msg');
+  const answer  = document.getElementById('fb-answer');
+
+  overlay.className = 'feedback-overlay ' + (ok ? 'feedback-correct' : 'feedback-wrong');
+  icon.textContent   = ok ? '✅' : '❌';
+  msg.textContent    = ok ? '정답입니다!' : '오답입니다';
+  msg.style.color    = ok ? '#15803d' : '#dc2626';
+  answer.textContent = ok ? '' : '정답: ' + correctWord;
+
+  requestAnimationFrame(() => overlay.classList.add('show'));
+  document.getElementById('btn-confirm').disabled = true;
+}
+
+function hideFeedback() {
+  document.getElementById('feedback-overlay').classList.remove('show');
+  document.getElementById('btn-confirm').disabled = false;
+}
+
+// ── 결과 화면 ─────────────────────────────────────────────────
+function showResults() {
+  show('screen-results');
+
+  const total   = shuffled.length;
+  const pct     = Math.round((score / total) * 100);
+  const circumf = 2 * Math.PI * 60; // r=60
+
+  document.getElementById('score-num').textContent   = score;
+  document.getElementById('score-total').textContent = '/ ' + total;
+
+  // 원형 프로그레스
+  const arc = document.getElementById('score-arc');
+  const offset = circumf - (pct / 100) * circumf;
+  arc.style.strokeDashoffset = circumf; // 초기값 (애니메이션용)
+  arc.style.stroke = pct >= 80 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#ef4444';
+  setTimeout(() => { arc.style.strokeDashoffset = offset; }, 100);
+
+  // 등급 및 메시지
+  const gradeEl = document.getElementById('grade-badge');
+  const msgEl   = document.getElementById('score-msg');
+  if      (pct >= 90){ gradeEl.textContent='🏆 A'; gradeEl.className='grade-badge grade-A'; msgEl.textContent='훌륭해요! 거의 다 맞았어요.'; }
+  else if (pct >= 80){ gradeEl.textContent='🥈 B'; gradeEl.className='grade-badge grade-B'; msgEl.textContent='잘했어요! 조금만 더 복습해요.'; }
+  else if (pct >= 60){ gradeEl.textContent='🥉 C'; gradeEl.className='grade-badge grade-C'; msgEl.textContent='반은 넘었어요. 틀린 단어를 다시 봐요!'; }
+  else               { gradeEl.textContent='📖 D'; gradeEl.className='grade-badge grade-D'; msgEl.textContent='더 열심히 외워봐요. 파이팅!'; }
+
+  // 틀린 단어 목록
+  if (wrongList.length > 0) {
+    const section = document.getElementById('wrong-section');
+    const list    = document.getElementById('wrong-list');
+    section.style.display = 'block';
+    list.innerHTML = wrongList.map(w =>
+      `<div class="wrong-item">
+        <span class="wrong-ko">${w.ko}</span>
+        <span class="wrong-en">${w.en}</span>
+      </div>`
+    ).join('');
+  }
+}
+
+// ── 결과 제출 ─────────────────────────────────────────────────
+document.getElementById('btn-submit').addEventListener('click', async () => {
+  if (submitting) return;
+  submitting = true;
+  const btn = document.getElementById('btn-submit');
+  btn.disabled    = true;
+  btn.textContent = '제출 중…';
+
+  try {
+    const wrongEns = wrongList.map(w => w.en);
+    await callAPI({
+      action : 'submit',
+      name   : studentInfo.name,
+      class  : studentInfo.class,
+      number : studentInfo.number,
+      score  : score,
+      total  : shuffled.length,
+      wrong  : encodeURIComponent(JSON.stringify(wrongEns))
+    });
+    btn.style.display = 'none';
+    document.getElementById('submitted-msg').style.display = 'block';
+  } catch(e) {
+    btn.disabled    = false;
+    btn.textContent = '다시 시도';
+    alert('제출 실패: ' + e.message);
+    submitting = false;
+  }
+});
+
+// ── 시작 ─────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
