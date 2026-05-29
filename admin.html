@@ -219,40 +219,24 @@ function saveConfig() {
   toast('✅ 설정이 저장되었습니다.');
 }
 
-// ── JSONP ─────────────────────────────────────────────────────
-function callAPI(params) {
-  return new Promise((resolve, reject) => {
-    if (!SCRIPT_URL) { reject(new Error('Apps Script URL을 먼저 입력하세요.')); return; }
-    const cb   = '_cb' + Date.now() + '_' + Math.floor(Math.random()*9999);
-    let   done = false;
-
-    window[cb] = data => {
-      if(done) return; done = true;
-      delete window[cb];
-      try { document.head.removeChild(script); } catch(_){}
-      resolve(data);
-    };
-
-    const url = new URL(SCRIPT_URL);
-    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
-    url.searchParams.set('callback', cb);
-
-    const script = document.createElement('script');
-    script.src    = url.toString();
-    script.onerror = () => {
-      if(done) return; done = true;
-      delete window[cb];
-      reject(new Error('네트워크 오류'));
-    };
-    document.head.appendChild(script);
-
-    setTimeout(() => {
-      if(done) return; done = true;
-      delete window[cb];
-      try { document.head.removeChild(script); } catch(_){}
-      reject(new Error('응답 시간 초과'));
-    }, 15000);
-  });
+// ── fetch 프록시 (CORS 없음) ──────────────────────────────────
+async function callAPI(params) {
+  if (!SCRIPT_URL) throw new Error('Apps Script URL을 먼저 입력하세요.');
+  const url = new URL('/api/proxy', location.origin);
+  url.searchParams.set('scriptUrl', SCRIPT_URL);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(url.toString(), { signal: ctrl.signal });
+    clearTimeout(tid);
+    if (!res.ok) throw new Error('서버 오류 ' + res.status);
+    return await res.json();
+  } catch(e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') throw new Error('응답 시간 초과');
+    throw e;
+  }
 }
 
 // ── 연결 테스트 ───────────────────────────────────────────────
@@ -312,8 +296,8 @@ async function setQuiz() {
     const res = await callAPI({
       action : 'setQuiz',
       key    : ADMIN_KEY,
-      title  : encodeURIComponent(title),
-      words  : encodeURIComponent(JSON.stringify(words))
+      title  : title,
+      words  : JSON.stringify(words)
     });
 
     if (!res.success) throw new Error(res.error || '등록 실패');
