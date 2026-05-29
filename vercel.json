@@ -1,19 +1,20 @@
 {
   "version": 2,
+  "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options",        "value": "SAMEORIGIN" }
-      ]
-    }
-  ],
   "rewrites": [
-    { "source": "/",       "destination": "/admin.html" },
-    { "source": "/admin",  "destination": "/admin.html" },
-    { "source": "/student","destination": "/student.html" }
+    {
+      "source": "/",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/student",
+      "destination": "/student.html"
+    }
   ]
 }
